@@ -28,7 +28,7 @@ save_plots = True
 
 
 # %% Simulation creation functions
-def make_sim(location='gabon', calib_pars=None, debug=0, interventions=None, analyzers=None, seed=1, end=2020):
+def make_sim(location='gabon', calib_pars=None, debug=0, interventions=None, analyzers=None, seed=1, end=2020, verbose=0.1):
     """
     Define parameters, analyzers, and interventions for the simulation
     """
@@ -42,7 +42,7 @@ def make_sim(location='gabon', calib_pars=None, debug=0, interventions=None, ana
         genotypes=[16, 18, 'hi5', 'ohr'],
         location=location,
         ms_agent_ratio=100,
-        verbose=0.0,
+        verbose=verbose,
         rand_seed=seed,
     )
 
