@@ -8,7 +8,6 @@ to run.
 # %% General settings
 
 import os
-import locations
 
 os.environ.update(
     OMP_NUM_THREADS='1',
