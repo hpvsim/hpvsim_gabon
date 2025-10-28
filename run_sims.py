@@ -184,7 +184,7 @@ def plot_calib(which_pars=0, save_pars=True, filestem=''):
 
     sc.fonts(add=sc.thisdir(aspath=True) / 'Libertinus Sans')
     sc.options(font='Libertinus Sans')
-    fig = calib.plot(res_to_plot=200, plot_type='sns.boxplot', do_save=False)
+    fig = calib.plot(res_to_plot=200, plot_type='sns.boxplot', do_save=False, do_show=False)
     fig.tight_layout()
     fig.savefig(f'figures/{filename}.png')
 
@@ -220,8 +220,8 @@ if __name__ == '__main__':
     to_run = [
         # 'run_sim',
         # 'age_pyramids',
-        'run_calib',
-        # 'plot_calib'
+        # 'run_calib',
+        'plot_calib'
         # 'run_parsets'
     ]
 
