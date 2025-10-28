@@ -90,7 +90,7 @@ def make_st(screen_coverage=0.15, treat_coverage=0.7, start_year=2020):
     return st_intvs
 
 
-def make_vx_scenarios(trans_arr, upper_age_arr, coverage_arr, product='nonavalent', start_year=2025):
+def make_vx_scenarios(product='bivalent', start_year=2025):
 
     routine_age = (9, 10)
     eligibility = lambda sim: (sim.people.doses == 0)
@@ -101,7 +101,7 @@ def make_vx_scenarios(trans_arr, upper_age_arr, coverage_arr, product='nonavalen
     vx_scenarios['No vaccination'] = []
 
     # Baseline vaccination scenarios
-    vx_years = np.arange(2026, 2100 + 1)
+    vx_years = np.arange(start_year, 2100 + 1)
     scaleup = [0.3, 0.6, 0.9]
 
     # Maintain 90%
@@ -111,7 +111,7 @@ def make_vx_scenarios(trans_arr, upper_age_arr, coverage_arr, product='nonavalen
     routine_vx = hpv.campaign_vx(
         prob=vx_cov,
         years=vx_years,
-        product='nonavalent',
+        product=product,
         age_range=routine_age,
         eligibility=eligibility,
         interpolate=False,
