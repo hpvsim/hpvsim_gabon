@@ -171,32 +171,35 @@ if __name__ == '__main__':
     do_process = True
     location = 'gabon'
 
+    scenarios = dict()
+    scenarios['Baseline'] = []
+
+    # Add combined scenarios
+    st_scenarios = make_st_scenarios()
+    vx_scenarios = make_vx_scenarios()
+    for st_label, st_intvs in st_scenarios.items():
+        for vx_label, vx_intvs in vx_scenarios.items():
+            combined_label = f'{st_label} + {vx_label}'
+            combined_intvs = st_intvs + vx_intvs
+            scenarios[combined_label] = combined_intvs
+    print(f'Set up {len(scenarios)} scenarios to run.')
+
     # Run scenarios (usually on VMs, runs n_seeds in parallel over M scenarios)
     if do_run:
-        scenarios = dict()
-        scenarios['Baseline'] = []
-
-        # Add combined scenarios
-        st_scenarios = make_st_scenarios()
-        vx_scenarios = make_vx_scenarios()
-        for st_label, st_intvs in st_scenarios.items():
-            for vx_label, vx_intvs in vx_scenarios.items():
-                combined_label = f'{st_label} + {vx_label}'
-                combined_intvs = st_intvs + vx_intvs
-                scenarios[combined_label] = combined_intvs
+        print(f'Running scenarios for location: {location}')
 
         calib_pars = sc.loadobj(f'results/{location}_pars.obj')
-        msim = run_sims(location=location, calib_pars=calib_pars, scenarios=scenarios)
+        msim = run_sims(location=location, calib_pars=calib_pars, scenarios=scenarios, verbose=-1)
 
         if do_save: msim.save(f'results/scens_{location}.msim')
 
         if do_process:
+            print('Post-processing results...')
 
             metrics = ['year', 'asr_cancer_incidence', 'cancers', 'cancer_deaths']
 
             # Process results
-            vx_scenarios = make_vx_scenarios()
-            scen_labels = list(vx_scenarios.keys())
+            scen_labels = list(scenarios.keys())
             mlist = msim.split(chunks=len(scen_labels))
 
             msim_dict = sc.objdict()
