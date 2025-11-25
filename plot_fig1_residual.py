@@ -11,7 +11,7 @@ import utils as ut
  
 def plot_fig1():
     ut.set_font(20)
-    fig = pl.figure(layout="tight", figsize=(14, 6))
+    fig = pl.figure(layout="tight", figsize=(20, 6))
     gs = fig.add_gridspec(1, 2)  # 1 row, 2 columns
 
     # Load Gabon scenario data
@@ -20,7 +20,7 @@ def plot_fig1():
     # What to plot
     start_year = 2016
     end_year = 2100
-    ymax = 25
+    ymax = 35
     si = sc.findinds(msim_dict['Baseline'].year, start_year)[0]
     ei = sc.findinds(msim_dict['Baseline'].year, end_year)[0]
     fi = sc.findinds(msim_dict['Baseline'].year, 2025)[0]
@@ -64,15 +64,15 @@ def plot_fig1():
     from matplotlib.patches import Patch
     screen_handles = [Patch(facecolor=screening_colors[i], label=f'{screening_levels[i]} screening')
                      for i in range(len(screening_levels))]
-    legend1 = ax.legend(handles=screen_handles, title='Screening coverage',
-                       loc='upper right', bbox_to_anchor=(1, 0.8), frameon=False)
+    legend1 = ax.legend(handles=screen_handles, title='',
+                       loc='lower left', frameon=False)
     ax.add_artist(legend1)
 
     # Vaccination legend
     from matplotlib.lines import Line2D
     vax_handles = [Line2D([0], [0], color='k', linestyle='-', lw=2, label='No vaccination'),
                    Line2D([0], [0], color='k', linestyle='--', lw=2, label='90% vax coverage')]
-    ax.legend(handles=vax_handles, title='Vaccination', loc='upper right', frameon=False)
+    ax.legend(handles=vax_handles, title='', loc='lower left', bbox_to_anchor=(0.3, 0), frameon=False)
 
     # Add panel label
     ax.text(-0.1, 1.05, 'A', transform=ax.transAxes, fontsize=24, fontweight='bold', va='top')
@@ -107,14 +107,15 @@ def plot_fig1():
             height = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2., height,
                     f'{int(height):,}',
-                    ha='center', va='bottom', fontsize=10)
+                    ha='center', va='bottom', fontsize=16)
 
     ax.set_xticks(x_base)
     ax.set_xticklabels([f'{level}' for level in screening_levels])
     ax.set_xlabel('Screening coverage')
     ax.set_title('Cumulative cancers\n2025-2100')
     sc.SIticks()
-    ax.legend(title='Vaccination', loc='upper right', frameon=False)
+    ax.set_ylim([0, 60e3])
+    ax.legend(title='', loc='upper right', frameon=False)
 
     # Add panel label
     ax.text(-0.1, 1.05, 'B', transform=ax.transAxes, fontsize=24, fontweight='bold', va='top')
