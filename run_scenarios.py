@@ -186,7 +186,7 @@ if __name__ == '__main__':
                 scenarios[combined_label] = combined_intvs
 
         calib_pars = sc.loadobj(f'results/{location}_pars.obj')
-        msim = run_sims(location=location, calib_pars=calib_pars, vx_scenarios=scenarios)
+        msim = run_sims(location=location, calib_pars=calib_pars, scenarios=scenarios)
 
         if do_save: msim.save(f'results/scens_{location}.msim')
 
