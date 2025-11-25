@@ -31,7 +31,7 @@ n_seeds = [10, 1][debug]  # How many seeds to run per cluster
 
 
 # %% Functions
-def make_st(screen_coverage=0.15, treat_coverage=0.7, start_year=2020):
+def make_st(screen_coverage=0.15, triage_coverage=0.9, treat_coverage=0.75, start_year=2020):
     """ Make screening & treatment intervention """
 
     age_range = [30, 50]
@@ -53,7 +53,7 @@ def make_st(screen_coverage=0.15, treat_coverage=0.7, start_year=2020):
     screen_positive = lambda sim: sim.get_intervention('screening').outcomes['positive']
     assign_treatment = hpv.routine_triage(
         start_year=start_year,
-        prob=1.0,
+        prob=triage_coverage,
         annual_prob=False,
         product='tx_assigner',
         eligibility=screen_positive,
@@ -90,6 +90,21 @@ def make_st(screen_coverage=0.15, treat_coverage=0.7, start_year=2020):
     return st_intvs
 
 
+def make_st_scenarios():
+    """ Make screening & treatment scenarios """
+
+    st_scenarios = dict()
+
+    # Enhanced screening & treatment, looping over screen_coverage and treat_coverage
+    screen_coverages = [0.1, 0.4, 0.9]
+    for scov in screen_coverages:
+        label = f'Screen {int(scov*100)}%'
+        st_intv = make_st(screen_coverage=scov)
+        st_scenarios[label] = st_intv
+
+    return st_scenarios
+
+
 def make_vx_scenarios(product='bivalent', start_year=2025):
 
     routine_age = (9, 10)
@@ -97,7 +112,6 @@ def make_vx_scenarios(product='bivalent', start_year=2025):
 
     vx_scenarios = dict()
 
-    # No vaccination
     vx_scenarios['No vaccination'] = []
 
     # Baseline vaccination scenarios
@@ -118,21 +132,18 @@ def make_vx_scenarios(product='bivalent', start_year=2025):
         annual_prob=False,
         label='Routine vx'
     )
-    vx_scenarios['90% routine coverage'] = [routine_vx]
+    vx_scenarios['90% vax coverage'] = [routine_vx]
 
     return vx_scenarios
 
 
-def make_sims(location='gabon', calib_pars=None, vx_scenarios=None, end=2100):
+def make_sims(location='gabon', calib_pars=None, scenarios=None, end=2100):
     """ Set up scenarios """
 
-    st_intv = make_st()
-
     all_msims = sc.autolist()
-    for name, vx_intv in vx_scenarios.items():
+    for name, interventions in scenarios.items():
         sims = sc.autolist()
         for seed in range(n_seeds):
-            interventions = vx_intv + st_intv
             sim = rs.make_sim(location=location, calib_pars=calib_pars, debug=debug, interventions=interventions, end=end, seed=seed, verbose=-1)
             sim.label = name
             sims += sim
@@ -143,9 +154,9 @@ def make_sims(location='gabon', calib_pars=None, vx_scenarios=None, end=2100):
     return msim
 
 
-def run_sims(location='gabon', calib_pars=None, vx_scenarios=None, verbose=0.2):
+def run_sims(location='gabon', calib_pars=None, scenarios=None, verbose=0.2):
     """ Run the simulations """
-    msim = make_sims(location=location, calib_pars=calib_pars, vx_scenarios=vx_scenarios)
+    msim = make_sims(location=location, calib_pars=calib_pars, scenarios=scenarios)
     parallel = ~(debug)
     msim.run(verbose=verbose, parallel=parallel)
     return msim
@@ -162,11 +173,22 @@ if __name__ == '__main__':
 
     # Run scenarios (usually on VMs, runs n_seeds in parallel over M scenarios)
     if do_run:
-        calib_pars = sc.loadobj(f'results/{location}_pars.obj')
-        vx_scenarios = make_vx_scenarios()
-        msim = run_sims(location=location, calib_pars=calib_pars, vx_scenarios=vx_scenarios)
+        scenarios = dict()
+        scenarios['Baseline'] = []
 
-        if do_save: msim.save(f'results/vs_{location}.msim')
+        # Add combined scenarios
+        st_scenarios = make_st_scenarios()
+        vx_scenarios = make_vx_scenarios()
+        for st_label, st_intvs in st_scenarios.items():
+            for vx_label, vx_intvs in vx_scenarios.items():
+                combined_label = f'{st_label} + {vx_label}'
+                combined_intvs = st_intvs + vx_intvs
+                scenarios[combined_label] = combined_intvs
+
+        calib_pars = sc.loadobj(f'results/{location}_pars.obj')
+        msim = run_sims(location=location, calib_pars=calib_pars, vx_scenarios=scenarios)
+
+        if do_save: msim.save(f'results/scens_{location}.msim')
 
         if do_process:
 
@@ -183,6 +205,6 @@ if __name__ == '__main__':
                 mres = sc.objdict({metric: reduced_sim.results[metric] for metric in metrics})
                 msim_dict[scen_label] = mres
 
-            sc.saveobj(f'results/vx_scens_{location}.obj', msim_dict)
+            sc.saveobj(f'results/scens_{location}.obj', msim_dict)
 
     print('Done.')

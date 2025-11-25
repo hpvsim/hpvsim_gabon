@@ -77,6 +77,37 @@ def get_debut(sex='f'):
     return rv.mean(), rv.std()
 
 
+
+def plot_single(ax, mres, to_plot, si, ei, color, ls='-', label=None, smooth=True):
+    years = mres.year[si:ei]
+    best = mres[to_plot][si:ei]
+    low = mres[to_plot].low[si:ei]
+    high = mres[to_plot].high[si:ei]
+
+    if smooth:
+        best = np.convolve(list(best), np.ones(5), "valid")/5
+        low = np.convolve(list(low), np.ones(5), "valid")/5
+        high = np.convolve(list(high), np.ones(5), "valid")/5
+        years = years[4:]
+
+    ax.plot(years, best, color=color, label=label, ls=ls)
+
+    if to_plot == 'asr_cancer_incidence':
+        try:
+            elim_year = sc.findfirst(best<4)
+            print(f'{label} elim year: {years[elim_year]}')
+        except:
+            print(f'{label} not eliminated')
+
+    ax.fill_between(years, low, high, alpha=0.1, color=color)
+    # ax.set_yscale('log')
+
+    # Add horizontal line at 4
+    ax.axhline(4, color='k', ls='--', lw=0.5)
+    return ax
+
+
+
 # %% Run as a script
 if __name__ == '__main__':
 
