@@ -10,3 +10,5 @@ tmp_calibration_*.obj
 results/*
 !results/gabon_pars_top50.obj
 !results/gabon_pars_all.obj
+!results/table1_parameter_uncertainty.csv
+!results/README.md
