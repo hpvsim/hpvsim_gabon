@@ -4,6 +4,14 @@ An [HPVsim](https://hpvsim.org) model of cervical cancer for Gabon, calibrated t
 national cancer case and age-standardized incidence data. Built on **hpvsim v2.x**
 (not yet migrated to v3.x).
 
+## Install
+
+```bash
+pip install -r requirements.txt
+```
+
+Requires `hpvsim==2.2.6`.
+
 ## What's here
 
 | File | Purpose |
@@ -13,6 +21,13 @@ national cancer case and age-standardized incidence data. Built on **hpvsim v2.x
 | `plot_fig1_residual.py` | Plots residual cervical cancer burden across scenarios. |
 | `utils.py` | Fonts, DHS-derived sexual-debut distributions, calibration/plotting helpers. |
 | `data/` | Calibration targets (cancer cases, ASR incidence, age pyramid). |
+| `tests/` | Smoke tests: baseline sim and scenario builders run in debug mode. |
+
+## Calibration status
+
+No calibrated parameter set is committed yet — a recalibration under hpvsim==2.2.6
+is pending. `run_calib`/`plot_calib` in `run_sims.py` produce `results/gabon_pars.obj`
+once run.
 
 ## How to run
 
@@ -27,6 +42,12 @@ python plot_fig1_residual.py
 
 Calibration (`run_calib` in `run_sims.py`) and full scenario runs (`run_scenarios.py`
 with `debug=0`) are long-running and should be run on a VM, not locally.
+
+## Testing
+
+```bash
+pytest tests/
+```
 
 ## Data provenance
 
