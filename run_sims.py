@@ -6,7 +6,6 @@ Define an HPVsim simulation for Gabon, including calibration
 import numpy as np
 import sciris as sc
 import hpvsim as hpv
-import pandas as pd
 
 # Imports from this repository
 import utils as ut
@@ -41,7 +40,7 @@ def make_sim(location='gabon', calib_pars=None, debug=0, interventions=None, ana
         end=end,
         genotypes=[16, 18, 'hi5', 'ohr'],
         location=location,
-        ms_agent_ratio=100,
+        ms_agent_ratio=100,  # Ratio of real to simulated agents for multiscale modeling
         verbose=verbose,
         rand_seed=seed,
     )
@@ -67,7 +66,6 @@ def make_sim(location='gabon', calib_pars=None, debug=0, interventions=None, ana
         m=np.array([
             # Share of people of each age who are married
             [0, 5, 10,    15,     20,     25,     30,     35,     40,     45,   50,   55,   60,   65,    70,   75],
-            # [0, 0,  0,  0.1596, 0.4466, 0.5845, 0.6139, 0.6202, 0.6139, 0.5726, 0.35, 0.21, 0.14, 0.07, 0.035, 0.007],
             [0, 0,  0,  0.1,     0.1,    0.15,    0.15,    0.15,   0.2,    0.3,  0.4,  0.4,  0.2, 0.07, 0.035, 0.007],
             [0, 0,  0,  0.1,     0.1,    0.15,    0.15,    0.2,    0.2,    0.4,  0.4,  0.4,  0.2,  0.1,  0.05, 0.01 ],
         ]),
@@ -101,18 +99,19 @@ def make_sim(location='gabon', calib_pars=None, debug=0, interventions=None, ana
 
 # %% Simulation running functions
 def run_sim(calib_pars=None, analyzers=None, debug=debug, seed=1, verbose=.1, do_shrink=do_shrink, do_save=do_save, end=2020):
+    """ Make and run a single simulation, optionally saving to results/gabon.sim """
     # Make sim
     sim = make_sim(
         debug=debug,
         seed=seed,
         analyzers=analyzers,
         calib_pars=calib_pars,
-        end=end
+        end=end,
+        verbose=verbose,
     )
     sim.label = f'Sim-{seed}'
 
     # Run
-    sim['verbose'] = verbose
     sim.run()
     if do_shrink:
         sim.shrink()
@@ -125,6 +124,7 @@ def run_sim(calib_pars=None, analyzers=None, debug=debug, seed=1, verbose=.1, do
 
 
 def run_calib(n_trials=None, n_workers=None, do_save=True, filestem=''):
+    """ Calibrate the model to Gabon cancer case/incidence data; saves calib and best-fit pars to results/ """
 
     sim = make_sim()
     datafiles = [
@@ -179,11 +179,11 @@ def run_calib(n_trials=None, n_workers=None, do_save=True, filestem=''):
 
 
 def plot_calib(which_pars=0, save_pars=True, filestem=''):
+    """ Load a saved calibration, plot the fit, and optionally re-save the best-fit pars """
     filename = f'gabon_calib{filestem}'
     calib = sc.load(f'results/{filename}.obj')
 
-    sc.fonts(add=sc.thisdir(aspath=True) / 'Libertinus Sans')
-    sc.options(font='Libertinus Sans')
+    ut.set_font()
     fig = calib.plot(res_to_plot=200, plot_type='sns.boxplot', do_save=False, do_show=False)
     fig.tight_layout()
     fig.savefig(f'figures/{filename}.png')
@@ -200,10 +200,12 @@ def plot_calib(which_pars=0, save_pars=True, filestem=''):
 
 
 def run_parsets(debug=False, verbose=.1, analyzers=None, save_results=True, **kwargs):
-    ''' Run multiple simulations in parallel '''
+    ''' Run multiple simulations in parallel, one per calibrated parameter set '''
 
     parsets = sc.loadobj(f'results/gabon_pars_all.obj')
-    kwargs = sc.mergedicts(dict(debug=debug, end=2040, verbose=verbose, analyzers=analyzers), kwargs)
+    # do_save=False: run_sim's default save path is fixed (results/gabon.sim), so parallel
+    # workers here would otherwise race to overwrite it; pass do_save explicitly to opt back in.
+    kwargs = sc.mergedicts(dict(debug=debug, end=2040, verbose=verbose, analyzers=analyzers, do_save=False), kwargs)
     simlist = sc.parallelize(run_sim, iterkwargs=dict(calib_pars=parsets), kwargs=kwargs, serial=debug, die=True)
     msim = hpv.MultiSim(simlist)
     msim.reduce()
@@ -215,6 +217,10 @@ def run_parsets(debug=False, verbose=.1, analyzers=None, save_results=True, **kw
 
 # %% Run as a script
 if __name__ == '__main__':
+
+    import os
+    os.makedirs('results', exist_ok=True)
+    os.makedirs('figures', exist_ok=True)
 
     # List of what to run
     to_run = [
@@ -228,16 +234,15 @@ if __name__ == '__main__':
     T = sc.timer()  # Start a timer
 
     if 'run_sim' in to_run:
-        # calib_pars = sc.loadobj('results/ethiopia_pars.obj')  # Load parameters from a previous calibration
         calib_pars = None
         sim = run_sim(calib_pars=calib_pars, do_save=False, do_shrink=False)  # Run the simulation
         sim.plot()  # Plot the simulation
 
     if 'age_pyramids' in to_run:
-        # calib_pars = sc.loadobj('results/gabon_pars.obj')
+        calib_pars = sc.loadobj('results/gabon_pars.obj')
         ap = hpv.age_pyramid(
             timepoints=['2025', '2050', '2075', '2100'],
-            datafile='data/ethiopia_age_pyramid.csv',
+            datafile='data/gabon_age_pyramid.csv',
             edges=np.linspace(0, 100, 21),
         )
         sim = run_sim(end=2100, calib_pars=calib_pars, analyzers=[ap], do_save=True, do_shrink=True)
