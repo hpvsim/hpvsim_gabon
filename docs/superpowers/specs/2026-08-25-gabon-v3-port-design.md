@@ -68,10 +68,34 @@ source):
 
 ### 3.2 `run_scenarios.py`
 
+**Screening probability conversion — semantic change from v2.**
+Gabon's v2 `make_screen_treat` converts the input `screen_coverage` to a per-year
+prob using `1 - (1 - C)^(1 / (age_range/2))` (i.e. `N = 10` for the 30–50
+window), interpreting the input as coverage-per-rescreen-cycle. Adopt
+pxv_younger's [`_annual_from_lifetime`](../../../../hpvsim_pxv_younger/run_scenarios.py#L224-L232)
+instead: use the **full** age range (`N = 20`), interpreting the input as
+**lifetime coverage**. Formula:
+
+```python
+SCREEN_AGE_LO, SCREEN_AGE_HI = 30, 50
+SCREEN_AGE_YEARS = SCREEN_AGE_HI - SCREEN_AGE_LO   # 20, not 10
+
+def _annual_from_lifetime(lifetime_cov, n_years=SCREEN_AGE_YEARS):
+    c = float(min(max(lifetime_cov, 0.0), 1.0))
+    if c <= 0: return 0.0
+    if c >= 1.0: return 1.0
+    return 1.0 - (1.0 - c) ** (1.0 / n_years)
+```
+
+`make_screen_treat(screen_coverage=X)` now interprets `X` as lifetime coverage
+over ages 30–50, matching pxv_younger. Note this shifts the screening-coverage
+axis of the scenario figure — the 10%/40%/90% labels now mean lifetime
+probabilities. Document in the run_scenarios docstring.
+
 **Scenario builder:**
-- `hpv.routine_screening(prob, eligibility, start_year, product='hpv', age_range, label)` unchanged.
-- `hpv.routine_triage(prob, product='tx_assigner', eligibility=<lambda>, ...)` — eligibility callback pattern preserved; product key strings unchanged.
-- `hpv.treat_num(prob, product='ablation'|'excision'|hpv.radiation(), eligibility=<lambda>, label)` — same signature; verify that `hpv.radiation()` still exists as a bare class in v3.
+- `hpv.routine_screening(prob, eligibility, start_year, product='hpv', age_range=[30, 50], label)` — call signature unchanged; only the per-year `prob` value changes per the conversion above.
+- `hpv.routine_triage(prob, product='tx_assigner', eligibility=<lambda>, start_year, annual_prob=False)` — **`annual_prob=False` is required** (gabon v2 already sets it; make sure it survives the port). pxv_younger uses this pattern verbatim ([run_scenarios.py:363-369](../../../../hpvsim_pxv_younger/run_scenarios.py#L363-L369)).
+- `hpv.treat_num(prob, product='ablation'|'excision'|hpv.radiation(), eligibility=<lambda>, label)` — same signature. Verify `hpv.radiation()` still exists as a bare class in v3.
 - `hpv.campaign_vx(prob, years, product='bivalent', age_range, eligibility, interpolate=False, annual_prob=False, label)` — **still exists in v3**, name unchanged. Product string `'bivalent'` should also survive; fallback is `product=hpv.vx(name='bivalent', sterilizing_p=0.95)`.
 
 **Eligibility callbacks:** rewrite `sim.get_intervention('name')` → `sim.interventions['name']`. Registration order still matters — screening must precede triage which must precede treatment.
@@ -193,7 +217,7 @@ If the v3 fit still pushes bounds, revisit these in a follow-up commit.
 | Figure | v2 baseline | v3 verdict targets |
 |---|---|---|
 | `gabon_calib.png` | v2 fit at mismatch = 0.875 | Data points inside the model boxplot IQR at every age; ASR inside the boxplot IQR. |
-| `gabon_vax_screening_top10.png` | Part 2 top-10 figure (committed) | Rank order of scenarios preserved; elimination years within ±2 years of v2; cumulative cancer bars within ~20%. |
+| `gabon_vax_screening_top10.png` | Part 2 top-10 figure (committed) | Rank order of scenarios preserved. **Expect a systematic shift**: the pxv_younger-style lifetime-coverage conversion (§3.2) roughly halves the per-year screening prob compared to v2, so the 10/40/90% scenarios will show weaker screening effects than the v2 figure. That is intentional; still expect Screen 90% + 90% vax to eliminate before 2100 in most parsets. |
 | `TABLE1.md` | current v2 table | Similar magnitudes; parameter names updated to v3 idioms; no priors stuck at bounds beyond those noted in §4.1. |
 
 If any figure fails the criterion, treat as a blocker and iterate on priors /
