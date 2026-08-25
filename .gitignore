@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Calibration workspace files
+tmp_calibration_*.obj
+*.db
+
+# Results: keep only the top-N parsets used by run_scenarios
+results/*
+!results/gabon_pars_top50.obj
+!results/gabon_pars_all.obj
+
+figures/
