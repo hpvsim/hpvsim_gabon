@@ -27,7 +27,8 @@ import run_sims as rs
 
 # What to run
 debug = 0
-n_seeds = [10, 1][debug]  # How many seeds to run per cluster
+n_parsets = [10, 1][debug]  # Top-N calibration parsets, for propagating parameter uncertainty
+n_seeds = [1, 1][debug]     # Stochastic seeds per parset per scenario
 end_year = 2100  # Simulation horizon; must match the vaccination scale-up schedule below
 
 
@@ -142,15 +143,18 @@ def make_vx_scenarios(product='bivalent', start_year=2025, end_year=end_year):
 
 
 def make_sims(location='gabon', calib_pars=None, scenarios=None, end=end_year):
-    """ Set up scenarios """
+    """ Set up scenarios. calib_pars is a list of parsets (or None). """
+
+    parsets = calib_pars if calib_pars is not None else [None]
 
     all_msims = sc.autolist()
     for name, interventions in scenarios.items():
         sims = sc.autolist()
-        for seed in range(n_seeds):
-            sim = rs.make_sim(location=location, calib_pars=calib_pars, debug=debug, interventions=interventions, end=end, seed=seed, verbose=-1)
-            sim.label = name
-            sims += sim
+        for pi, parset in enumerate(parsets):
+            for si in range(n_seeds):
+                sim = rs.make_sim(location=location, calib_pars=parset, debug=debug, interventions=interventions, end=end, seed=pi * n_seeds + si, verbose=-1)
+                sim.label = name
+                sims += sim
         all_msims += hpv.MultiSim(sims)
 
     msim = hpv.MultiSim.merge(all_msims, base=False)
@@ -196,8 +200,8 @@ if __name__ == '__main__':
     if do_run:
         print(f'Running scenarios for location: {location}')
 
-        calib_pars = sc.loadobj(f'results/{location}_pars.obj')
-        msim = run_sims(location=location, calib_pars=calib_pars, scenarios=scenarios, verbose=-1)
+        parsets = sc.loadobj(f'results/{location}_pars_top50.obj')[:n_parsets]
+        msim = run_sims(location=location, calib_pars=parsets, scenarios=scenarios, verbose=-1)
 
         if do_save: msim.save(f'results/scens_{location}.msim')
 
