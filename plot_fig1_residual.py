@@ -11,14 +11,14 @@ import numpy as np
 import utils as ut
 
 
-def plot_fig1():
+def plot_fig1(filestem=''):
     """ Plot ASR cancer incidence over time (panel A) and cumulative cancers 2025-2100 (panel B) """
     ut.set_font(20)
     fig = plt.figure(layout="tight", figsize=(20, 6))
     gs = fig.add_gridspec(1, 2)  # 1 row, 2 columns
 
     # Load Gabon scenario data
-    msim_dict = sc.loadobj('results/scens_gabon.obj')
+    msim_dict = sc.loadobj(f'results/scens_gabon{filestem}.obj')
 
     # What to plot
     start_year = 2016
@@ -126,7 +126,7 @@ def plot_fig1():
     ax.text(-0.1, 1.05, 'B', transform=ax.transAxes, fontsize=24, fontweight='bold', va='top')
 
     fig.tight_layout()
-    fig_name = 'figures/gabon_vax_screening.png'
+    fig_name = f'figures/gabon_vax_screening{filestem}.png'
     sc.savefig(fig_name, dpi=100)
 
     return msim_dict
