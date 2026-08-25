@@ -1,17 +1,20 @@
 """
-Plot residual burden
+Plot residual cervical cancer burden under combined screening and vaccination scenarios
 """
 
 
-import pylab as pl
+import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
 import sciris as sc
 import numpy as np
 import utils as ut
 
- 
+
 def plot_fig1():
+    """ Plot ASR cancer incidence over time (panel A) and cumulative cancers 2025-2100 (panel B) """
     ut.set_font(20)
-    fig = pl.figure(layout="tight", figsize=(20, 6))
+    fig = plt.figure(layout="tight", figsize=(20, 6))
     gs = fig.add_gridspec(1, 2)  # 1 row, 2 columns
 
     # Load Gabon scenario data
@@ -20,10 +23,11 @@ def plot_fig1():
     # What to plot
     start_year = 2016
     end_year = 2100
-    ymax = 35
-    si = sc.findinds(msim_dict['Baseline'].year, start_year)[0]
-    ei = sc.findinds(msim_dict['Baseline'].year, end_year)[0]
-    fi = sc.findinds(msim_dict['Baseline'].year, 2025)[0]
+    vax_start_year = 2025  # Vaccination scenarios start in 2025; used as the cutoff for cumulative cancers averted
+    ymax = 35  # y-axis max for ASR incidence panel, chosen to give headroom above the baseline curve
+    start_idx = sc.findinds(msim_dict['Baseline'].year, start_year)[0]
+    end_idx = sc.findinds(msim_dict['Baseline'].year, end_year)[0]
+    vax_start_idx = sc.findinds(msim_dict['Baseline'].year, vax_start_year)[0]
 
     # Define screening levels and vaccination status
     screening_levels = ['10%', '40%', '90%']
@@ -44,7 +48,7 @@ def plot_fig1():
     ax = fig.add_subplot(gs[0])
 
     # Plot baseline
-    ax = ut.plot_single(ax, msim_dict['Baseline'], 'asr_cancer_incidence', si, ei,
+    ax = ut.plot_single(ax, msim_dict['Baseline'], 'asr_cancer_incidence', start_idx, end_idx,
                         color='k', label='Baseline')
 
     # Plot each combination
@@ -53,7 +57,7 @@ def plot_fig1():
             scen_key = f'Screen {screen_level} + {vax}'
             ls = line_styles[vax]
             label = f'{screen_level} screening' if vax == 'No vaccination' else ''
-            ax = ut.plot_single(ax, msim_dict[scen_key], 'asr_cancer_incidence', si, ei,
+            ax = ut.plot_single(ax, msim_dict[scen_key], 'asr_cancer_incidence', start_idx, end_idx,
                                color=screening_colors[screen_idx], ls=ls, label=label)
 
     ax.set_ylim(bottom=0, top=ymax)
@@ -61,7 +65,6 @@ def plot_fig1():
 
     # Create legends
     # Screening level legend
-    from matplotlib.patches import Patch
     screen_handles = [Patch(facecolor=screening_colors[i], label=f'{screening_levels[i]} screening')
                      for i in range(len(screening_levels))]
     legend1 = ax.legend(handles=screen_handles, title='',
@@ -69,7 +72,6 @@ def plot_fig1():
     ax.add_artist(legend1)
 
     # Vaccination legend
-    from matplotlib.lines import Line2D
     vax_handles = [Line2D([0], [0], color='k', linestyle='-', lw=2, label='No vaccination'),
                    Line2D([0], [0], color='k', linestyle='--', lw=2, label='90% vax coverage')]
     ax.legend(handles=vax_handles, title='', loc='lower left', bbox_to_anchor=(0.3, 0), frameon=False)
@@ -82,20 +84,23 @@ def plot_fig1():
     ######################################################
     ax = fig.add_subplot(gs[1])
 
-    # Set up grouped bars
+    # Set up grouped bars; offsets generalize to however many vax_status entries there are
+    # (for n_vax=2 this reproduces the original +/-bar_width/2 spacing exactly)
     bar_width = 0.35
     x_base = np.arange(len(screening_levels))
-    offsets = [-bar_width/2, bar_width/2]
+    n_vax = len(vax_status)
+    offsets = [(i - (n_vax-1)/2) * bar_width for i in range(n_vax)]
 
-    # Colors for vaccination status
+    # Colors for vaccination status (extend this list if more vax_status entries are added)
     vax_colors = ['gray', 'lightblue']
+    assert n_vax <= len(vax_colors), f'Need at least {n_vax} vax_colors, only have {len(vax_colors)}'
 
     for vax_idx, vax in enumerate(vax_status):
         cum_cancers = []
 
         for screen_level in screening_levels:
             scen_key = f'Screen {screen_level} + {vax}'
-            val = msim_dict[scen_key]['cancers'].values[fi:].sum()
+            val = msim_dict[scen_key]['cancers'].values[vax_start_idx:].sum()
             cum_cancers.append(val)
             print(f'{scen_key}: {val} cancers')
 
@@ -124,28 +129,23 @@ def plot_fig1():
     fig_name = 'figures/gabon_vax_screening.png'
     sc.savefig(fig_name, dpi=100)
 
-    return
+    return msim_dict
 
 
 # %% Run as a script
 if __name__ == '__main__':
 
-    location = 'gabon'
-    plot_fig1()
+    msim_dict = plot_fig1()
 
-    msim_dict = sc.loadobj('results/scens_gabon.obj')
     mbase = msim_dict['Screen 10% + 90% vax coverage']
     mno = msim_dict['Screen 10% + No vaccination']
     start_year = 2016
     end_year = 2100
-    si = sc.findinds(mbase.year, start_year)[0]
-    ei = sc.findinds(mbase.year, end_year)[0]
-    fi = sc.findinds(mbase.year, 2025)[0]
- 
-    # elim_year = sc.findfirst(msim_dict['60% routine coverage']['asr_cancer_incidence'][si:]<4, die=False)+si
+    start_idx = sc.findinds(mbase.year, start_year)[0]
+    end_idx = sc.findinds(mbase.year, end_year)[0]
+    vax_start_idx = sc.findinds(mbase.year, 2025)[0]
 
-    # print(f'Elim year: {mbase.year[elim_year]}')
-    print(f'Cancers in 2025: {mbase.cancers[si]} ({mbase.cancers.low[si]}, {mbase.cancers.high[si]})')
-    print(f'Cancers in 2100: {mbase.cancers[ei]} ({mbase.cancers.low[ei]}, {mbase.cancers.high[ei]})')
-    print(f'Cancers averted: {mno.cancers[fi:].sum()-mbase.cancers[fi:].sum()}')
+    print(f'Cancers in 2025: {mbase.cancers[start_idx]} ({mbase.cancers.low[start_idx]}, {mbase.cancers.high[start_idx]})')
+    print(f'Cancers in 2100: {mbase.cancers[end_idx]} ({mbase.cancers.low[end_idx]}, {mbase.cancers.high[end_idx]})')
+    print(f'Cancers averted: {mno.cancers[vax_start_idx:].sum()-mbase.cancers[vax_start_idx:].sum()}')
 

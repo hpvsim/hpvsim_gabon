@@ -5,9 +5,7 @@ Utilities
 # Imports
 import sciris as sc
 import numpy as np
-import hpvsim as hpv
 from scipy.stats import norm, lognorm
-import pandas as pd
 
 
 def set_font(size=None, font='Libertinus Sans'):
@@ -18,6 +16,7 @@ def set_font(size=None, font='Libertinus Sans'):
 
 
 def shrink_calib(calib, n_results=100):
+    """ Keep only the top n_results trials of a calibration, to reduce memory/plotting cost """
     cal = sc.objdict()
     plot_indices = calib.df.iloc[:n_results, 0].values
     cal.sim_results = [calib.sim_results[i] for i in plot_indices]
@@ -26,20 +25,6 @@ def shrink_calib(calib, n_results=100):
     return cal
 
 
-def lognorm_params(par1, par2):
-    """
-    Given the mean and std. dev. of the log-normal distribution, this function
-    returns the shape and scale parameters for scipy's parameterization of the
-    distribution.
-    """
-    mean = np.log(par1 ** 2 / np.sqrt(par2 ** 2 + par1 ** 2))  # Computes the mean of the underlying normal distribution
-    sigma = np.sqrt(np.log(par2 ** 2 / par1 ** 2 + 1))  # Computes sigma for the underlying normal distribution
-
-    scale = np.exp(mean)
-    shape = sigma
-    return shape, scale
-
- 
 def logn_percentiles_to_pars(x1, p1, x2, p2):
     """ Find the parameters of a lognormal distribution where:
             P(X < p1) = x1
@@ -59,6 +44,9 @@ def get_debut(sex='f'):
     """
     Read in dataframes taken from DHS and return them in a plot-friendly format,
     optionally saving the distribution parameters
+
+    Percentiles below are derived by fitting to the 2019-21 Gabon DHS; see
+    https://www.researchsquare.com/article/rs-3074559/v1
     """
     if sex == 'f':
         x1 = 15
@@ -77,35 +65,33 @@ def get_debut(sex='f'):
     return rv.mean(), rv.std()
 
 
-
-def plot_single(ax, mres, to_plot, si, ei, color, ls='-', label=None, smooth=True):
+def plot_single(ax, mres, to_plot, si, ei, color, ls='-', label=None, smooth=True, smooth_window=5):
+    """ Plot a single result (with uncertainty band) from si:ei, optionally smoothed with a moving average """
     years = mres.year[si:ei]
     best = mres[to_plot][si:ei]
     low = mres[to_plot].low[si:ei]
     high = mres[to_plot].high[si:ei]
 
     if smooth:
-        best = np.convolve(list(best), np.ones(5), "valid")/5
-        low = np.convolve(list(low), np.ones(5), "valid")/5
-        high = np.convolve(list(high), np.ones(5), "valid")/5
-        years = years[4:]
+        best = np.convolve(list(best), np.ones(smooth_window), "valid")/smooth_window
+        low = np.convolve(list(low), np.ones(smooth_window), "valid")/smooth_window
+        high = np.convolve(list(high), np.ones(smooth_window), "valid")/smooth_window
+        years = years[smooth_window-1:]
 
     ax.plot(years, best, color=color, label=label, ls=ls)
 
     if to_plot == 'asr_cancer_incidence':
-        try:
-            elim_year = sc.findfirst(best<4)
+        elim_year = sc.findfirst(best < 4, die=False)
+        if elim_year is not None:
             print(f'{label} elim year: {years[elim_year]}')
-        except:
+        else:
             print(f'{label} not eliminated')
 
     ax.fill_between(years, low, high, alpha=0.1, color=color)
-    # ax.set_yscale('log')
 
-    # Add horizontal line at 4
+    # Add horizontal line at the elimination threshold (WHO target: 4 per 100,000)
     ax.axhline(4, color='k', ls='--', lw=0.5)
     return ax
-
 
 
 # %% Run as a script
