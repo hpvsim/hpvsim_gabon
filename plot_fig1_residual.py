@@ -96,22 +96,27 @@ def plot_fig1(filestem=''):
     assert n_vax <= len(vax_colors), f'Need at least {n_vax} vax_colors, only have {len(vax_colors)}'
 
     for vax_idx, vax in enumerate(vax_status):
-        cum_cancers = []
+        cum_cancers, cum_low, cum_high = [], [], []
 
         for screen_level in screening_levels:
             scen_key = f'Screen {screen_level} + {vax}'
-            val = msim_dict[scen_key]['cancers'].values[vax_start_idx:].sum()
+            res = msim_dict[scen_key]['cancers']
+            val = res.values[vax_start_idx:].sum()
             cum_cancers.append(val)
-            print(f'{scen_key}: {val} cancers')
+            cum_low.append(res.low[vax_start_idx:].sum())
+            cum_high.append(res.high[vax_start_idx:].sum())
+            print(f'{scen_key}: {val:.0f} cancers ({cum_low[-1]:.0f}, {cum_high[-1]:.0f})')
 
+        yerr = np.array([np.array(cum_cancers) - np.array(cum_low),
+                         np.array(cum_high) - np.array(cum_cancers)])
         bars = ax.bar(x_base + offsets[vax_idx], cum_cancers, width=bar_width,
-                      color=vax_colors[vax_idx], label=vax)
+                      color=vax_colors[vax_idx], label=vax,
+                      yerr=yerr, capsize=5, error_kw={'ecolor': 'black', 'lw': 1.2})
 
-        # Add value labels on bars
-        for bar in bars:
-            height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{int(height):,}',
+        # Add value labels above the error bar top
+        for bar, hi in zip(bars, cum_high):
+            ax.text(bar.get_x() + bar.get_width()/2., hi,
+                    f'{int(bar.get_height()):,}',
                     ha='center', va='bottom', fontsize=16)
 
     ax.set_xticks(x_base)
@@ -119,7 +124,7 @@ def plot_fig1(filestem=''):
     ax.set_xlabel('Screening coverage')
     ax.set_title('Cumulative cancers\n2025-2100')
     sc.SIticks()
-    ax.set_ylim([0, 60e3])
+    ax.set_ylim([0, 70e3])
     ax.legend(title='', loc='upper right', frameon=False)
 
     # Add panel label
