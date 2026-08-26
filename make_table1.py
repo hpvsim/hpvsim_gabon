@@ -1,9 +1,9 @@
 """
 Generate Table 1: parameter uncertainty propagated in run_scenarios.py.
 
-Loads the top-N calibration parsets (from results/gabon_pars_top50.obj) and
-compares them to the calibration search bounds defined in run_sims.run_calib.
-Writes:
+Loads the top-N parsets from the shrunk calibration
+(results/gabon_calib.obj) and compares them to the calibration search
+bounds defined in run_sims.make_calib_pars. Writes:
   - results/table1_parameter_uncertainty.csv
   - TABLE1.md
 """
@@ -13,47 +13,40 @@ import numpy as np
 
 N_PARSETS = 10
 
-# Priors from run_sims.run_calib, format [initial, low, high, step]
+# Priors from run_sims.make_calib_pars (v3), format [best_or_init, low, high].
+# beta is fixed at 0.120 in make_sim (not calibrated on v3).
 PRIORS = {
-    'beta':                          [0.2,   0.1,    0.34,   0.02],
-    'm_cross_layer':                 [0.3,   0.1,    0.7,    0.05],
-    'f_cross_layer':                 [0.1,   0.05,   0.5,    0.05],
-    'm_partners_c_par1':             [0.2,   0.1,    0.6,    0.02],
-    'f_partners_c_par1':             [0.2,   0.1,    0.6,    0.02],
-    'sev_dist_par1':                 [1.0,   0.5,    1.5,    0.01],
-    'hi5_cancer_fn_transform_prob':  [1.5e-3, 0.5e-3, 2.5e-3, 2e-4],
-    'hi5_cin_fn_k':                  [0.15,  0.1,    0.25,   0.01],
-    'hi5_dur_cin_par1':              [4.5,   3.5,    5.5,    0.5],
-    'hi5_dur_cin_par2':              [20.0,  16.0,   24.0,   0.5],
-    'ohr_cancer_fn_transform_prob':  [1.5e-3, 0.5e-3, 2.5e-3, 2e-4],
-    'ohr_cin_fn_k':                  [0.15,  0.1,    0.25,   0.01],
-    'ohr_dur_cin_par1':              [4.5,   3.5,    5.5,    0.5],
-    'ohr_dur_cin_par2':              [20.0,  16.0,   24.0,   0.5],
+    'm_cross_layer':                   [0.15, 0.1,  0.7],
+    'f_cross_layer':                   [0.1,  0.05, 0.5],
+    'network_m_partners_casual':       [0.2,  0.1,  0.6],
+    'network_f_partners_casual':       [0.2,  0.1,  0.6],
+    'cross_immunity_rel_sev_loc':      [1.0,  0.5,  1.5],
+    'hi5_cancer_fn_transform_prob':    [1.5e-3, 0.5e-3, 2.5e-3],
+    'hi5_cin_fn_k':                    [0.15, 0.1,  0.25],
+    'hi5_dur_cin_mean':                [4.5,  3.5,  5.5],
+    'hi5_dur_cin_std':                 [20.0, 16.0, 24.0],
+    'ohr_cancer_fn_transform_prob':    [1.5e-3, 0.5e-3, 2.5e-3],
+    'ohr_cin_fn_k':                    [0.15, 0.1,  0.25],
+    'ohr_dur_cin_mean':                [4.5,  3.5,  5.5],
+    'ohr_dur_cin_std':                 [20.0, 16.0, 24.0],
 }
 
-# Path into the parset dict returned by calib.trial_pars_to_sim_pars(which_pars=i)
-PATH = {
-    'beta':                          ['beta'],
-    'm_cross_layer':                 ['m_cross_layer'],
-    'f_cross_layer':                 ['f_cross_layer'],
-    'm_partners_c_par1':             ['m_partners', 'c', 'par1'],
-    'f_partners_c_par1':             ['f_partners', 'c', 'par1'],
-    'sev_dist_par1':                 ['sev_dist', 'par1'],
-    'hi5_cancer_fn_transform_prob':  ['genotype_pars', 'hi5', 'cancer_fn', 'transform_prob'],
-    'hi5_cin_fn_k':                  ['genotype_pars', 'hi5', 'cin_fn', 'k'],
-    'hi5_dur_cin_par1':              ['genotype_pars', 'hi5', 'dur_cin', 'par1'],
-    'hi5_dur_cin_par2':              ['genotype_pars', 'hi5', 'dur_cin', 'par2'],
-    'ohr_cancer_fn_transform_prob':  ['genotype_pars', 'ohr', 'cancer_fn', 'transform_prob'],
-    'ohr_cin_fn_k':                  ['genotype_pars', 'ohr', 'cin_fn', 'k'],
-    'ohr_dur_cin_par1':              ['genotype_pars', 'ohr', 'dur_cin', 'par1'],
-    'ohr_dur_cin_par2':              ['genotype_pars', 'ohr', 'dur_cin', 'par2'],
+# Flat key in the parset dict returned by rs.load_top_parsets (dotted).
+KEY = {
+    'm_cross_layer':                   'm_cross_layer',
+    'f_cross_layer':                   'f_cross_layer',
+    'network_m_partners_casual':       'network.m_partners_casual',
+    'network_f_partners_casual':       'network.f_partners_casual',
+    'cross_immunity_rel_sev_loc':      'cross_immunity.rel_sev.loc',
+    'hi5_cancer_fn_transform_prob':    'hi5.cancer_fn.transform_prob',
+    'hi5_cin_fn_k':                    'hi5.cin_fn.k',
+    'hi5_dur_cin_mean':                'hi5.dur_cin.mean',
+    'hi5_dur_cin_std':                 'hi5.dur_cin.std',
+    'ohr_cancer_fn_transform_prob':    'ohr.cancer_fn.transform_prob',
+    'ohr_cin_fn_k':                    'ohr.cin_fn.k',
+    'ohr_dur_cin_mean':                'ohr.dur_cin.mean',
+    'ohr_dur_cin_std':                 'ohr.dur_cin.std',
 }
-
-
-def get(parset, path):
-    for k in path:
-        parset = parset[k]
-    return parset
 
 
 def fmt(x):
@@ -65,12 +58,15 @@ def fmt(x):
     return f'{x:.3f}'
 
 
-parsets = sc.loadobj('results/gabon_pars_top50.obj')[:N_PARSETS]
+import run_sims as rs
+parsets = rs.load_top_parsets(N_PARSETS)
+# Load shrunk calib for the mismatch value only
+calib = sc.load('results/gabon_calib.obj')
 
 rows = []
-for name, path in PATH.items():
+for name, key in KEY.items():
     prior = PRIORS[name]
-    values = np.array([get(p, path) for p in parsets])
+    values = np.array([p[key] for p in parsets])
     rows.append({
         'parameter':    name,
         'prior_low':    prior[1],
@@ -94,12 +90,16 @@ for _, r in df.iterrows():
     )
 md = '\n'.join(lines)
 
+best_mismatch = float(calib.df.iloc[0]['mismatch']) if hasattr(calib, 'df') else None
+mismatch_str = f' (mismatch = {best_mismatch:.3f})' if best_mismatch is not None else ''
+
 with open('TABLE1.md', 'w') as f:
     f.write('# Table 1 — parameter uncertainty propagated in `run_scenarios.py`\n\n')
     f.write(f'The top {N_PARSETS} calibration parsets (ranked by mismatch, taken from '
-            f'`results/gabon_pars_top50.obj`) drive the parameter uncertainty band in the '
-            f'scenario ensemble. Prior bounds are the calibration search intervals defined '
-            f'in `run_sims.run_calib`. **best** is rank 1 by mismatch (mismatch = 0.875).\n\n')
+            f'the top-{N_PARSETS} rows of `results/gabon_calib.obj`) drive the parameter '
+            f'uncertainty band in the scenario ensemble. Prior bounds are the calibration '
+            f'search intervals defined in `run_sims.make_calib_pars`. **best** is rank 1 '
+            f'by mismatch{mismatch_str}.\n\n')
     f.write(md + '\n')
 
 print(md)

@@ -15,16 +15,6 @@ def set_font(size=None, font='Libertinus Sans'):
     return
 
 
-def shrink_calib(calib, n_results=100):
-    """ Keep only the top n_results trials of a calibration, to reduce memory/plotting cost """
-    cal = sc.objdict()
-    plot_indices = calib.df.iloc[:n_results, 0].values
-    cal.sim_results = [calib.sim_results[i] for i in plot_indices]
-    cal.target_data = calib.target_data
-    cal.df = calib.df.iloc[0:n_results, ]
-    return cal
-
-
 def logn_percentiles_to_pars(x1, p1, x2, p2):
     """ Find the parameters of a lognormal distribution where:
             P(X < p1) = x1
@@ -65,18 +55,25 @@ def get_debut(sex='f'):
     return rv.mean(), rv.std()
 
 
-def plot_single(ax, mres, to_plot, si, ei, color, ls='-', label=None, smooth=True, smooth_window=5):
-    """ Plot a single result (with uncertainty band) from si:ei, optionally smoothed with a moving average """
-    years = mres.year[si:ei]
-    best = mres[to_plot][si:ei]
-    low = mres[to_plot].low[si:ei]
-    high = mres[to_plot].high[si:ei]
+def plot_single(ax, mres, to_plot, start_year, end_year, color, ls='-', label=None, smooth=True, smooth_window=5):
+    """Plot one metric's median + envelope over [start_year, end_year], optionally smoothed.
+
+    ``mres`` is ``msim_dict[scen]`` — a dict-like keyed by metric name, where each
+    value is a pandas DataFrame indexed by year with columns ``median``, ``low``,
+    ``high`` (built by ``run_scenarios.run_sims``).
+    """
+    df = mres[to_plot]
+    sub = df.loc[(df.index >= start_year) & (df.index <= end_year)]
+    years = sub.index.to_numpy()
+    best = sub['median'].to_numpy()
+    low = sub['low'].to_numpy()
+    high = sub['high'].to_numpy()
 
     if smooth:
-        best = np.convolve(list(best), np.ones(smooth_window), "valid")/smooth_window
-        low = np.convolve(list(low), np.ones(smooth_window), "valid")/smooth_window
-        high = np.convolve(list(high), np.ones(smooth_window), "valid")/smooth_window
-        years = years[smooth_window-1:]
+        best = np.convolve(best, np.ones(smooth_window), 'valid') / smooth_window
+        low = np.convolve(low, np.ones(smooth_window), 'valid') / smooth_window
+        high = np.convolve(high, np.ones(smooth_window), 'valid') / smooth_window
+        years = years[smooth_window - 1:]
 
     ax.plot(years, best, color=color, label=label, ls=ls)
 
@@ -89,8 +86,9 @@ def plot_single(ax, mres, to_plot, si, ei, color, ls='-', label=None, smooth=Tru
 
     ax.fill_between(years, low, high, alpha=0.1, color=color)
 
-    # Add horizontal line at the elimination threshold (WHO target: 4 per 100,000)
+    # WHO elimination threshold (4 per 100,000)
     ax.axhline(4, color='k', ls='--', lw=0.5)
+    return ax
     return ax
 
 

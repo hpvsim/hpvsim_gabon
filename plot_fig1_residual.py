@@ -23,11 +23,8 @@ def plot_fig1(filestem=''):
     # What to plot
     start_year = 2016
     end_year = 2100
-    vax_start_year = 2025  # Vaccination scenarios start in 2025; used as the cutoff for cumulative cancers averted
-    ymax = 35  # y-axis max for ASR incidence panel, chosen to give headroom above the baseline curve
-    start_idx = sc.findinds(msim_dict['Baseline'].year, start_year)[0]
-    end_idx = sc.findinds(msim_dict['Baseline'].year, end_year)[0]
-    vax_start_idx = sc.findinds(msim_dict['Baseline'].year, vax_start_year)[0]
+    vax_start_year = 2025  # cutoff for cumulative-cancers-averted
+    ymax = 35  # y-axis max for ASR panel
 
     # Define screening levels and vaccination status
     screening_levels = ['10%', '40%', '90%']
@@ -47,18 +44,16 @@ def plot_fig1(filestem=''):
     ######################################################
     ax = fig.add_subplot(gs[0])
 
-    # Plot baseline
-    ax = ut.plot_single(ax, msim_dict['Baseline'], 'asr_cancer_incidence', start_idx, end_idx,
+    ax = ut.plot_single(ax, msim_dict['Baseline'], 'asr_cancer_incidence', start_year, end_year,
                         color='k', label='Baseline')
 
-    # Plot each combination
     for screen_idx, screen_level in enumerate(screening_levels):
         for vax in vax_status:
             scen_key = f'Screen {screen_level} + {vax}'
             ls = line_styles[vax]
             label = f'{screen_level} screening' if vax == 'No vaccination' else ''
-            ax = ut.plot_single(ax, msim_dict[scen_key], 'asr_cancer_incidence', start_idx, end_idx,
-                               color=screening_colors[screen_idx], ls=ls, label=label)
+            ax = ut.plot_single(ax, msim_dict[scen_key], 'asr_cancer_incidence', start_year, end_year,
+                                color=screening_colors[screen_idx], ls=ls, label=label)
 
     ax.set_ylim(bottom=0, top=ymax)
     ax.set_title('ASR cervical cancer incidence, 2025-2100\nScreening and prophylactic vaccination in Gabon')
@@ -100,11 +95,12 @@ def plot_fig1(filestem=''):
 
         for screen_level in screening_levels:
             scen_key = f'Screen {screen_level} + {vax}'
-            res = msim_dict[scen_key]['cancers']
-            val = res.values[vax_start_idx:].sum()
+            df = msim_dict[scen_key]['new_cancers']
+            post = df.loc[df.index >= vax_start_year]
+            val = float(post['median'].sum())
             cum_cancers.append(val)
-            cum_low.append(res.low[vax_start_idx:].sum())
-            cum_high.append(res.high[vax_start_idx:].sum())
+            cum_low.append(float(post['low'].sum()))
+            cum_high.append(float(post['high'].sum()))
             print(f'{scen_key}: {val:.0f} cancers ({cum_low[-1]:.0f}, {cum_high[-1]:.0f})')
 
         yerr = np.array([np.array(cum_cancers) - np.array(cum_low),
@@ -142,15 +138,14 @@ if __name__ == '__main__':
 
     msim_dict = plot_fig1()
 
-    mbase = msim_dict['Screen 10% + 90% vax coverage']
-    mno = msim_dict['Screen 10% + No vaccination']
-    start_year = 2016
-    end_year = 2100
-    start_idx = sc.findinds(mbase.year, start_year)[0]
-    end_idx = sc.findinds(mbase.year, end_year)[0]
-    vax_start_idx = sc.findinds(mbase.year, 2025)[0]
+    mbase = msim_dict['Screen 10% + 90% vax coverage']['new_cancers']
+    mno = msim_dict['Screen 10% + No vaccination']['new_cancers']
+    vax_start_year = 2025
 
-    print(f'Cancers in 2025: {mbase.cancers[start_idx]} ({mbase.cancers.low[start_idx]}, {mbase.cancers.high[start_idx]})')
-    print(f'Cancers in 2100: {mbase.cancers[end_idx]} ({mbase.cancers.low[end_idx]}, {mbase.cancers.high[end_idx]})')
-    print(f'Cancers averted: {mno.cancers[vax_start_idx:].sum()-mbase.cancers[vax_start_idx:].sum()}')
+    for yr in (2025, 2100):
+        row = mbase.loc[yr]
+        print(f'Cancers in {yr}: {row["median"]:.0f} ({row["low"]:.0f}, {row["high"]:.0f})')
+    averted = mno.loc[mno.index >= vax_start_year, 'median'].sum() \
+              - mbase.loc[mbase.index >= vax_start_year, 'median'].sum()
+    print(f'Cancers averted (2025+): {averted:.0f}')
 

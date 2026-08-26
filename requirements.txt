@@ -1,4 +1,6 @@
-hpvsim==2.2.6
+# hpvsim 3.1.0 is not yet released to PyPI; install from source (rc3.1.0).
+# Switch to hpvsim==3.1.0 once the release lands.
+hpvsim @ git+https://github.com/starsimhub/hpvsim.git@rc3.1.0
 sciris>=3.1
 numpy>=1.24
 scipy>=1.10

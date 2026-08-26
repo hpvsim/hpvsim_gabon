@@ -1,14 +1,18 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.superpowers/
 
 # Calibration workspace files
 tmp_calibration_*.obj
 *.db
 
-# Results: keep only the top-N parsets used by run_scenarios
+# Full (unshrunk) calibration objects
+raw_results/
+
+# Results: keep the shrunk calib + best pars + Table 1
 results/*
-!results/gabon_pars_top50.obj
-!results/gabon_pars_all.obj
+!results/gabon_calib.obj
+!results/gabon_pars.obj
 !results/table1_parameter_uncertainty.csv
 !results/README.md
